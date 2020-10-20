@@ -19,14 +19,13 @@ terraform {
 ##################### Remote State #####################
 
 data "terraform_remote_state" "db" {
-	backend "s3"
+	backend = "s3"
 	config = {
 		bucket = "chysome-terraform-up-and-running"
 		key    = "stage/data-stores/mysql/terraform.tfstate"
 		region = "us-east-2"
 	}
 }
-   
 
 ##################### Initialize provider ###########################
 provider "aws" {
@@ -58,23 +57,28 @@ resource "aws_security_group" "instance" {
 
 }
 
-################### Configure Autoscaling Group #####################
+################### User-Data ###################
+data "template_file" "user_data" {
+	template = file("user-data.sh")
+
+	vars = {
+		server_port = var.server_port
+		db_address  = data.terraform_remote_state.db.outputs.address
+		db_port			= data.terraform_remote_state.db.outputs.port
+	}
+}
+
+################### Configure Autoscaling Group ###################
 
 resource "aws_launch_configuration" "example" {
 	image_id 				= "ami-0c55b159cbfafe1f0"
 	instance_type		= "t2.micro"
 	security_groups	= [aws_security_group.instance.id]
+	user_data				= data.template_file.user_data.rendered
 
-	user_data = <<EOF
-	#!/bin/bash
-	echo "Hello, World" >> index.html
-	echo "${data.terraform_remote_state.db.outputs.address}" >> index.html
-	echo "${data.terraform_remote_state.db.outputs.port}" >> index.html
-	nohup busybox httpd -f -p ${var.server_port} &
-	EOF
 	lifecycle {
 	   create_before_destroy = true
-        }
+     }
 }
 
 resource "aws_autoscaling_group" "example" {
@@ -84,7 +88,7 @@ resource "aws_autoscaling_group" "example" {
 	target_group_arns = [aws_lb_target_group.asg.arn]
 	health_check_type = "ELB"
 
-        min_size = 2
+  min_size = 2
 	max_size = 4
 
 	tag {
@@ -106,7 +110,7 @@ resource "aws_lb" "example" {
 resource "aws_lb_listener" "http" {
 	load_balancer_arn = aws_lb.example.arn
 	port		  = 80
-	protocol	  = "HTTP"
+	protocol	= "HTTP"
 
 	default_action {
 	    type	= "fixed-response"
@@ -130,7 +134,7 @@ resource "aws_lb_listener_rule" "asg" {
 	}
 
 	action {
-           type	     = "forward"
+           type	      = "forward"
 	   target_group_arn = aws_lb_target_group.asg.arn
         }
 }
