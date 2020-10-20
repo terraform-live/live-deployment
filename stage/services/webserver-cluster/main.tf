@@ -3,18 +3,30 @@ terraform {
   required_version = ">= 0.12, < 0.13"
 }
 
-############# Terraform Backend for State files ###################
+############ Terraform Backend for State files ###################
 
 terraform {
   backend "s3" {
     bucket = "chysome-terraform-up-and-running"
-    key    = "globall/s3/terraform.tfstate"
+    key    = "stage/services/webserver-cluster/terraform.tfstate"
     region = "us-east-2"
 
     dynamodb_table = "chysome-terraform-up-and-running-lock"
     encrypt        = true
   }
 }
+
+##################### Remote State #####################
+
+data "terraform_remote_state" "db" {
+	backend "s3"
+	config = {
+		bucket = "chysome-terraform-up-and-running"
+		key    = "stage/data-stores/mysql/terraform.tfstate"
+		region = "us-east-2"
+	}
+}
+   
 
 ##################### Initialize provider ###########################
 provider "aws" {
@@ -35,12 +47,11 @@ data "aws_subnet_ids" "default" {
 ################### Instance security Group ########################
 
 resource "aws_security_group" "instance" {
-    name	       = "terraform-example-instance"
+  name	         = "terraform-example-instance"
 
-    ingress {
-           
-        from_port      = 8080
-	to_port	       = 8080
+  ingress {
+	from_port      = var.server_port
+	to_port	       = var.server_port
 	protocol       = "tcp"
 	cidr_blocks    = ["0.0.0.0/0"]
     }
@@ -50,15 +61,17 @@ resource "aws_security_group" "instance" {
 ################### Configure Autoscaling Group #####################
 
 resource "aws_launch_configuration" "example" {
-	image_id 	= "ami-0c55b159cbfafe1f0"
-	instance_type	= "t2.micro"
+	image_id 				= "ami-0c55b159cbfafe1f0"
+	instance_type		= "t2.micro"
 	security_groups	= [aws_security_group.instance.id]
 
-	user_data      = <<-EOF
-                          #!/bin/bash
-                          echo "Hello, World" > index.html
-                          nohup busybox httpd -f -p 8080 &
-                          EOF
+	user_data = <<EOF
+	#!/bin/bash
+	echo "Hello, World" >> index.html
+	echo "${data.terraform_remote_state.db.outputs.address}" >> index.html
+	echo "${data.terraform_remote_state.db.outputs.port}" >> index.html
+	nohup busybox httpd -f -p ${var.server_port} &
+	EOF
 	lifecycle {
 	   create_before_destroy = true
         }
@@ -72,7 +85,7 @@ resource "aws_autoscaling_group" "example" {
 	health_check_type = "ELB"
 
         min_size = 2
-	max_size = 10
+	max_size = 4
 
 	tag {
 	   key = "Name"
@@ -124,43 +137,35 @@ resource "aws_lb_listener_rule" "asg" {
 
 resource "aws_lb_target_group" "asg" {
 	name = "terraform-asg-example"
-	port = 8080
+	port = var.server_port
 	protocol = "HTTP"
 	vpc_id	 = data.aws_vpc.default.id
 
 	health_check {
-	   path	 =	"/"
-	   protocol = "HTTP"
-	   matcher  = "200"
-	   interval = 15
-	   timeout	 = 3
-	   healthy_threshold   = 2
-	   unhealthy_threshold = 2
-        }
+		path	 =	"/"
+		protocol = "HTTP"
+		matcher  = "200"
+		interval = 15
+		timeout	 = 3
+		healthy_threshold   = 2
+		unhealthy_threshold = 2
+	}
 }
 resource "aws_security_group" "alb" {
-        name    = "terraform-example-alb"
+    name    = "terraform-example-alb"
+		
+	ingress {
+		from_port = 80
+		to_port   = 80
+		protocol  = "tcp"
+		cidr_blocks = ["0.0.0.0/0"]
+	}
 
-        ingress {
-            from_port = 80
-            to_port   = 80
-            protocol  = "tcp"
-            cidr_blocks = ["0.0.0.0/0"]
-        }
-
-        egress {
-            from_port = 0
-            to_port   = 0
-            protocol  = "-1"
-            cidr_blocks = ["0.0.0.0/0"]
-        }
-}
-
-##################### Output #########################
-
-output "alb_dns_name" {
-
-	description	= "The domain name of the load balancer" 
-	value		= aws_lb.example.dns_name
+	egress {
+		from_port = 0
+		to_port   = 0
+		protocol  = "-1"
+		cidr_blocks = ["0.0.0.0/0"]
+	}
 }
 
