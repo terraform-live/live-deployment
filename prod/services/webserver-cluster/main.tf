@@ -1,6 +1,17 @@
 provider "aws" {
   region = "us-east-2"
-  required_version = ">0.12 < 0.13"
+  version = "~>3.0"
+}
+
+terraform {
+  backend "s3" {
+    bucket = "chysome-terraform-up-and-running"
+    key    = "prod/services/webserver-cluster/terraform.tfstate"
+    region = "us-east-2"
+
+    dynamodb_table = "chysome-terraform-up-and-running-lock"
+    encrypt        = true
+  }
 }
 
 
@@ -20,10 +31,10 @@ module "webserver_cluster" {
 resource "aws_autoscaling_schedule" "scale_out_during_business_hours" {
   
   scheduled_action_name = "scale-out-during-business-hours"
-  min_size = 2
+  min_size = 4
   max_size = 10
   desired_capacity = 10
-  recurrence = "0 9 * * *"
+  recurrence = "30 20 * * *"
   autoscaling_group_name = module.webserver_cluster.asg_name
 }
 resource "aws_autoscaling_schedule" "scale_in-at-night" {

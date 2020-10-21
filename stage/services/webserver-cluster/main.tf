@@ -1,8 +1,18 @@
 provider "aws" {
   region = "us-east-2"
-  required_version = ">0.12 < 0.13"
+  version = "~>3.0"
 }
 
+terraform {
+  backend "s3" {
+    bucket = "chysome-terraform-up-and-running"
+    key    = "stage/services/webserver-cluster/terraform.tfstate"
+    region = "us-east-2"
+
+    dynamodb_table = "chysome-terraform-up-and-running-lock"
+    encrypt        = true
+  }
+}
 
 module "webserver_cluster" {
 
@@ -24,4 +34,4 @@ resource "aws_security_group_rule" "allow_testing_inbound" {
   to_port           = 12345
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
-
+}

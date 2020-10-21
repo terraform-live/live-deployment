@@ -1,22 +1,10 @@
-
-terraform {
-  backend "s3" {
-    bucket = "chysome-terraform-up-and-running"
-    key    = "stage/services/webserver-cluster/terraform.tfstate"
-    region = "us-east-2"
-
-    dynamodb_table = "chysome-terraform-up-and-running-lock"
-    encrypt        = true
-  }
-}
-
-##################### Remote State #####################
+##################### Remote State for db #####################
 
 data "terraform_remote_state" "db" {
 	backend = "s3"
 	config = {
-		bucket = "var.db_remote_state_bucket"
-		key    = "var.db_remote_state_key"
+		bucket = var.db_remote_state_bucket
+		key    = var.db_remote_state_key
 		region = "us-east-2"
 	}
 }
