@@ -48,16 +48,9 @@ resource "aws_security_group_rule" "allow_ssh_inbound" {
   from_port         = local.ssh_port
   to_port           = local.ssh_port
   protocol          = local.tcp_protocol
-  cidr_blocks       = local.all_ips
+  cidr_blocks       = ["68.134.166.135/32"]
   }
-resource "aws_security_group_rule" "allow_ssh_outbound" {
-  type              = "egress"
-  security_group_id = aws_security_group.instance.id
-  from_port         = local.any_port
-  to_port           = local.any_port
-  protocol          = local.tcp_protocol
-  cidr_blocks       = local.all_ips
-}
+
 
 
 ################### User-Data ###################
