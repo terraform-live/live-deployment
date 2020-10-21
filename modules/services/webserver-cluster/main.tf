@@ -1,4 +1,6 @@
-##################### Remote State for db #####################
+################### Define data sources here ###################
+
+## Remote State for db ##
 
 data "terraform_remote_state" "db" {
 	backend = "s3"
@@ -9,8 +11,6 @@ data "terraform_remote_state" "db" {
 	}
 }
 
-################### Define data sources here #######################
-
 data "aws_vpc" "default" {
      default = true
 }
@@ -18,42 +18,8 @@ data "aws_vpc" "default" {
 data "aws_subnet_ids" "default" {
      vpc_id = data.aws_vpc.default.id
 }
- 
-################### Instance security Group ########################
 
-resource "aws_security_group" "instance" {
-  name        = "${var.cluster_name}-instance"
-}
-resource "aws_security_group_rule" "app_access" {
-  type              = "ingress"
-  security_group_id = aws_security_group.instance.id
-  from_port         = var.server_port
-  to_port           = var.server_port
-  protocol          = local.tcp_protocol
-  cidr_blocks       = local.all_ips
-  }
-
-	resource "aws_security_group_rule" "app_outbound" {
-    type        = "egress"
-    security_group_id = aws_security_group.instance.id
-    from_port   = local.any_port
-    to_port     = local.any_port
-    protocol    = local.tcp_protocol
-    cidr_blocks = local.all_ips
-}
-
-resource "aws_security_group_rule" "allow_ssh_inbound" {
-  type              = "ingress"
-  security_group_id = aws_security_group.instance.id
-  from_port         = local.ssh_port
-  to_port           = local.ssh_port
-  protocol          = local.tcp_protocol
-  cidr_blocks       = ["68.134.166.135/32"]
-  }
-
-
-
-################### User-Data ###################
+## User Data ##
 data "template_file" "user_data" {
 	template = file("${path.module}/user-data.sh")
 
@@ -63,6 +29,42 @@ data "template_file" "user_data" {
 		db_port			= data.terraform_remote_state.db.outputs.port
 	}
 }
+################### SSH Key ###################
+resource "aws_key_pair" "deployer" {
+  key_name   = var.ssh_key
+  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC74QjI9F/q2ORxNrPT1OszLSHdWE5uAIMBNzuudR3esovVH74/k7AfHTF8CHaLmZ/8ToRrHGlzHdnzR4tfAXm3LfZ2xrd1E+6SP7q/TEEFf+vYhYiTO5rUV7IGiON3ZBj4UOh3mQ5wQtwquVqszn7dNofMA37zSorUuutX18Lzt3FqKT51G37zWVaK9JPMqPCeeDqKngJvX1i8QAJT8VipF0rlSo71dHPVr8zIoE/LUf8ytuab1Lom4leMG86qK2pw+givXqiqjUcnTX4enhZGtK/ai/pJpwhcABpuC21TMCF5p0Z3PTkrZhno8MTi8+trIK2z+nD4gVdeciGBs4w5 Chysome@McNathan"
+}
+################### Instance security Group ###################
+
+resource "aws_security_group" "instance" {
+  name        = "${var.cluster_name}-instance"
+}
+resource "aws_security_group_rule" "instance_inbound" {
+  type              = "ingress"
+  security_group_id = aws_security_group.instance.id
+  from_port         = var.server_port
+  to_port           = var.server_port
+  protocol          = local.tcp_protocol
+  cidr_blocks       = local.all_ips
+  }
+
+	resource "aws_security_group_rule" "instance_outbound" {
+    type        = "egress"
+    security_group_id = aws_security_group.instance.id
+    from_port   = local.any_port
+    to_port     = local.any_port
+    protocol    = local.tcp_protocol
+    cidr_blocks = local.all_ips
+}
+
+resource "aws_security_group_rule" "instance_ssh_inbound" {
+  type              = "ingress"
+  security_group_id = aws_security_group.instance.id
+  from_port         = local.ssh_port
+  to_port           = local.ssh_port
+  protocol          = local.tcp_protocol
+  cidr_blocks       = ["68.134.166.135/32"]
+  }
 
 ################### Configure Autoscaling Group ###################
 
@@ -71,6 +73,7 @@ resource "aws_launch_configuration" "example" {
 	instance_type		= var.instance_type
 	security_groups	= [aws_security_group.instance.id]
 	user_data				= data.template_file.user_data.rendered
+	key_name				= aws_key_pair.deployer.key_name
 
 	lifecycle {
 	   create_before_destroy = true
@@ -94,7 +97,7 @@ resource "aws_autoscaling_group" "example" {
 	}
 }
 
-################### Configure Application Load Balancer ####################
+################### Configure Application Load Balancer ###################
 
 resource "aws_lb" "example" {
 	name = "${var.cluster_name}-example"
@@ -102,6 +105,27 @@ resource "aws_lb" "example" {
 	subnets		   = data.aws_subnet_ids.default.ids
 	security_groups	   = [aws_security_group.alb.id]
 }
+
+resource "aws_security_group" "alb" {
+  name        = "${var.cluster_name}-alb"
+}
+resource "aws_security_group_rule" "allow_http_inbound" {
+    type              = "ingress"
+    security_group_id = aws_security_group.alb.id
+    from_port         = local.http_port
+    to_port           = local.http_port
+    protocol          = local.tcp_protocol
+    cidr_blocks       = local.all_ips
+  }
+resource "aws_security_group_rule" "allow_http_outbound" {
+    type        = "egress"
+    security_group_id = aws_security_group.alb.id
+    from_port   = local.any_port
+    to_port     = local.any_port
+    protocol    = local.tcp_protocol
+    cidr_blocks = local.all_ips
+}
+
 
 resource "aws_lb_listener" "http" {
 	load_balancer_arn = aws_lb.example.arn
@@ -112,14 +136,12 @@ resource "aws_lb_listener" "http" {
 	    type	= "fixed-response"
 
 	    fixed_response {
-		content_type = "text/plain"
-		message_body = "404: Not found"
-		status_code  = 404
+				content_type = "text/plain"
+				message_body = "404: Not found"
+				status_code  = 404
             }
         }
 }    
-
-
 
 resource "aws_lb_listener_rule" "asg" {
 	listener_arn = aws_lb_listener.http.arn
@@ -152,24 +174,5 @@ resource "aws_lb_target_group" "asg" {
 		healthy_threshold   = 2
 		unhealthy_threshold = 2
 	}
-}
-resource "aws_security_group" "alb" {
-  name        = "${var.cluster_name}-alb"
-}
-resource "aws_security_group_rule" "allow_http_inbound" {
-    type              = "ingress"
-    security_group_id = aws_security_group.alb.id
-    from_port         = local.http_port
-    to_port           = local.http_port
-    protocol          = local.tcp_protocol
-    cidr_blocks       = local.all_ips
-  }
-resource "aws_security_group_rule" "allow_http_outbound" {
-    type        = "egress"
-    security_group_id = aws_security_group.alb.id
-    from_port   = local.any_port
-    to_port     = local.any_port
-    protocol    = local.tcp_protocol
-    cidr_blocks = local.all_ips
 }
 

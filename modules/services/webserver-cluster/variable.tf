@@ -1,3 +1,9 @@
+variable "ssh_key" {
+  description = "SSh key for instances"
+  type        = string
+
+}
+
 variable "server_port" {
   description = "Port on which App listens"
   type        = number
