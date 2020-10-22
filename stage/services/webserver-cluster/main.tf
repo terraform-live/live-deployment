@@ -15,7 +15,7 @@ terraform {
 }
 
 module "webserver_cluster" {
-  source = "git@github.com:Terreform-Modules/webserver-cluster.git?ref=v0.0.1"
+  source = "git@github.com:terraform-live/modules.git//services/webserver-cluster?ref=master"
 
 	cluster_name						= "webservers-stage"
 	db_remote_state_bucket	= "chysome-terraform-up-and-running"
