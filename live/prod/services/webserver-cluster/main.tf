@@ -27,6 +27,11 @@ module "webserver_cluster" {
   instance_type = "t2.micro"
   min_size = 2
   max_size = 4
+
+  custom_tags = {
+    Owner     = "delta-team"
+    DeployedBy  = "terraform"   
+  }
 }
 
 resource "aws_autoscaling_schedule" "scale_out_during_business_hours" {
@@ -47,3 +52,4 @@ resource "aws_autoscaling_schedule" "scale_in-at-night" {
   recurrence = "0 17 * * *"
   autoscaling_group_name = module.webserver_cluster.asg_name
 }
+
