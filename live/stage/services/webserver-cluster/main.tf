@@ -9,7 +9,7 @@ module "webserver_cluster" {
 	cluster_name						= "webservers-stage"
 	db_remote_state_bucket	= "chysome-terraform-up-and-running"
 	db_remote_state_key			= "stage/data-stores/mysql/terraform.tfstate"
-  ssh_key                 = "stage-ssh-key"
+  ssh_key                 = "stage-deployer-key"
   s3_backend              = "stage/services/webserver-cluster/terraform.tfstate"
 
   instance_type = "t2.micro"
