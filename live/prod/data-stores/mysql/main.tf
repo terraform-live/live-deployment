@@ -28,8 +28,8 @@ resource "aws_db_instance" "prod" {
 terraform {
   backend "s3" {
     bucket = "chysome-terraform-up-and-running"
-    key    = "prod/data-stores/mysql/terraform.tfstate"
-    region = "us-east-2"
+    s3_key    = "prod/data-stores/mysql/terraform.tfstate"
+    aws_region = "us-east-2"
 
     dynamodb_table = "chysome-terraform-up-and-running-lock"
     encrypt        = true

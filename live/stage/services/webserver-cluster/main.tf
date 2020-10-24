@@ -6,8 +6,8 @@ provider "aws" {
 terraform {
   backend "s3" {
     bucket = "chysome-terraform-up-and-running"
-    key    = "stage/services/webserver-cluster/terraform.tfstate"
-    region = "us-east-2"
+    s3_key    = "stage/services/webserver-cluster/terraform.tfstate"
+    aws_region = "us-east-2"
 
     dynamodb_table = "chysome-terraform-up-and-running-lock"
     encrypt        = true
