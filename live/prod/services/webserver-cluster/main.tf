@@ -23,8 +23,8 @@ module "webserver_cluster" {
   terraform {
     backend "s3" {
       bucket = "chysome-terraform-up-and-running"
-      s3_key    = "prod/services/webserver-cluster/terraform.tfstate"
-      aws_region = "us-east-2"
+      s3_backend    = "prod/services/webserver-cluster/terraform.tfstate"
+      region = "us-east-2"
 
     dynamodb_table = "chysome-terraform-up-and-running-lock"
     encrypt        = true
