@@ -2,7 +2,7 @@ provider "aws" {
   region = "us-east-2"
   version = "~>3.0"
 }
-
+ 
 module "webserver_cluster" {
 
   source = "git@github.com:terraform-live/modules.git//services/webserver-cluster?ref=master"
@@ -11,6 +11,7 @@ module "webserver_cluster" {
 	db_remote_state_bucket	= "chysome-terraform-up-and-running"
 	db_remote_state_key			= "prod/data-stores/mysql/terraform.tfstate"
   ssh_key                 = "prod-up-and-running"
+  s3_backend              = "prod/services/webserver-cluster/terraform.tfstate"
 
   instance_type = "t2.micro"
   min_size = 2
@@ -20,16 +21,6 @@ module "webserver_cluster" {
     Owner     = "delta-team"
     DeployedBy  = "terraform"   
   }
-  terraform {
-    backend "s3" {
-      bucket = "chysome-terraform-up-and-running"
-      s3_backend    = "prod/services/webserver-cluster/terraform.tfstate"
-      region = "us-east-2"
-
-    dynamodb_table = "chysome-terraform-up-and-running-lock"
-    encrypt        = true
-  }
- }
 }
 
 resource "aws_autoscaling_schedule" "scale_out_during_business_hours" {
