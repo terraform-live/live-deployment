@@ -18,6 +18,7 @@ module "webserver_cluster" {
   max_size = 4
   enable_autoscaling      = true
   enable_new_user_data    = false
+  give_neo_cloudwatch_full_access = true
 
   custom_tags = {
     Owner     = "delta-team"
