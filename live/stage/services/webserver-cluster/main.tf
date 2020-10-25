@@ -17,6 +17,7 @@ module "webserver_cluster" {
   max_size = 2
   enable_autoscaling  = false
   enable_new_user_data = true
+  give_neo_cloudwatch_full_access = false
   custom_tags = {
     Owner     = "delta-team"
     DeployedBy  = "terraform"   
