@@ -1,9 +1,14 @@
 provider "aws" {
-  region = "us-east-2"
+  region = "us-east-1"
 }
 
 resource "aws_s3_bucket" "terraform_state" {
   bucket = var.s3_bucket_name
+  acl    = "private"
+  tags = {
+    Name        = "edl-east-privacera"
+    Environment = "IMPL"
+  }
 
   # Enable versioning so we can see the full revision history of our
   # state files
@@ -16,7 +21,7 @@ resource "aws_s3_bucket" "terraform_state" {
   }
 
     lifecycle {
-      prevent_destroy = true
+      prevent_destroy = false
   }
 
   # Enable server-side encryption by default
